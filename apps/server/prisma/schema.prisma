@@ -1,0 +1,307 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum RoomStatus {
+  LOBBY
+  STARTING
+  IN_MATCH
+  COMPLETED
+}
+
+enum RoomPlayerStatus {
+  CONNECTED
+  DISCONNECTED
+  FORFEITED
+  KICKED
+  LEFT
+}
+
+enum MatchPhase {
+  SETUP
+  TURN
+  AUCTION
+  AUCTIONEER_CHOICE
+  PAYMENT
+  NEGOTIATION
+  COMPLETED
+  ENDED_NO_RESULT
+}
+
+enum MatchStatus {
+  ACTIVE
+  COMPLETED
+  ENDED_NO_RESULT
+}
+
+enum MatchEndReason {
+  ALL_QUARTETS_COMPLETE
+  ONE_ELIGIBLE_PLAYER_REMAINS
+  NO_ELIGIBLE_LEGAL_TURN
+  NO_CONNECTED_PLAYERS
+}
+
+enum MatchParticipantStatus {
+  ACTIVE
+  FORFEITED
+}
+
+enum AnimalType {
+  HORSE
+  COW
+  PIG
+  DONKEY
+  GOAT
+  SHEEP
+  DOG
+  CAT
+  GOOSE
+  ROOSTER
+}
+
+enum PublicGameEventType {
+  ROOM_CREATED
+  PLAYER_JOINED
+  PLAYER_LEFT
+  PLAYER_DISCONNECTED
+  PLAYER_RECONNECTED
+  PLAYER_FORFEITED
+  HOST_TRANSFERRED
+  MATCH_STARTED
+  MATCH_ENDED
+  TURN_STARTED
+  AUCTION_STARTED
+  BID_ACCEPTED
+  AUCTION_CLOSED
+  AUCTIONEER_CHOICE
+  PAYMENT_SUCCEEDED
+  PAYMENT_FAILED
+  REAUCTION_STARTED
+  DONKEY_DISTRIBUTION
+  KUHHANDEL_OFFER_SUBMITTED
+  KUHHANDEL_RESPONSE
+  KUHHANDEL_RESOLVED
+  ANIMAL_TRANSFERRED
+  QUARTET_COMPLETED
+}
+
+enum AuditLogEventType {
+  ROOM_CREATED
+  ROOM_DELETED
+  MATCH_STARTED
+  MATCH_ENDED
+  PLAYER_JOINED
+  PLAYER_LEFT
+  PLAYER_DISCONNECTED
+  PLAYER_RECONNECTED
+  PLAYER_FORFEITED
+  HOST_TRANSFERRED
+  AUCTION_OPERATION_SUCCEEDED
+  AUCTION_OPERATION_FAILED
+  PAYMENT_OPERATION_SUCCEEDED
+  PAYMENT_OPERATION_FAILED
+  NEGOTIATION_OPERATION_SUCCEEDED
+  NEGOTIATION_OPERATION_FAILED
+  INVALID_REQUEST_REJECTED
+  SERVER_ERROR
+  SERVER_EXCEPTION
+}
+
+/// Minimal permanent reservation that prevents a deleted room code from being reused.
+/// This row contains no player, match, or gameplay data.
+model RoomCodeReservation {
+  code       String   @id
+  reservedAt DateTime @default(now()) @db.Timestamptz(3)
+  room       Room?
+}
+
+model Room {
+  code String @id
+
+  codeReservation RoomCodeReservation @relation(fields: [code], references: [code], onDelete: Restrict)
+
+  status       RoomStatus  @default(LOBBY)
+  hostPlayerId String?     @unique @db.Uuid
+  hostPlayer   RoomPlayer? @relation("RoomHost", fields: [code, hostPlayerId], references: [roomCode, id], onDelete: NoAction)
+
+  /// Original 30-minute deadline; setup rollback must preserve this timestamp.
+  lobbyExpiresAt     DateTime  @db.Timestamptz(3)
+  hostlessExpiresAt  DateTime? @db.Timestamptz(3)
+  postMatchExpiresAt DateTime? @db.Timestamptz(3)
+  createdAt          DateTime  @default(now()) @db.Timestamptz(3)
+  updatedAt          DateTime  @updatedAt @db.Timestamptz(3)
+
+  players      RoomPlayer[]      @relation("RoomParticipants")
+  match        Match?
+  publicEvents PublicGameEvent[]
+
+  @@unique([code, hostPlayerId])
+  @@index([status, lobbyExpiresAt])
+  @@index([status, hostlessExpiresAt])
+  @@index([status, postMatchExpiresAt])
+}
+
+/// A guest identity is scoped to one room. A replacement guest gets a different row and UUID.
+model RoomPlayer {
+  id       String @id @default(uuid()) @db.Uuid
+  roomCode String
+  room     Room   @relation("RoomParticipants", fields: [roomCode], references: [code], onDelete: Cascade)
+
+  /// Exact duplicates are forbidden per room; PostgreSQL's default comparison is case-sensitive.
+  nickname  String
+  avatar    String
+  joinOrder Int
+  status    RoomPlayerStatus @default(CONNECTED)
+  isReady   Boolean          @default(false)
+
+  /// Raw reconnect token, per the approved digital decision. Clear when invalidated; never log or expose it.
+  reconnectToken String? @unique
+
+  joinedAt           DateTime  @default(now()) @db.Timestamptz(3)
+  disconnectedAt     DateTime? @db.Timestamptz(3)
+  reconnectExpiresAt DateTime? @db.Timestamptz(3)
+  forfeitedAt        DateTime? @db.Timestamptz(3)
+  removedAt          DateTime? @db.Timestamptz(3)
+  updatedAt          DateTime  @updatedAt @db.Timestamptz(3)
+
+  hostedRoom       Room?             @relation("RoomHost")
+  matchParticipant MatchParticipant? @relation("PlayerMatch")
+  eventsAsActor    PublicGameEvent[] @relation("PublicEventActor")
+  eventsAsTarget   PublicGameEvent[] @relation("PublicEventTarget")
+
+  // PostgreSQL migration uses a partial unique index on removedAt so kicked,
+  // forfeited, and departed guests can return as new identities.
+  @@index([roomCode, nickname])
+  @@unique([roomCode, joinOrder])
+  @@unique([roomCode, id])
+  @@index([roomCode, status, joinOrder])
+  @@index([status, reconnectExpiresAt])
+}
+
+model Match {
+  id       String @id @default(uuid()) @db.Uuid
+  roomCode String @unique
+  room     Room   @relation(fields: [roomCode], references: [code], onDelete: Cascade)
+
+  status    MatchStatus     @default(ACTIVE)
+  phase     MatchPhase      @default(SETUP)
+  /// Authoritative, versioned server state for the current match. Private fields are projected per player.
+  state     Json?
+  version   Int             @default(0)
+  endReason MatchEndReason?
+  startedAt DateTime        @default(now()) @db.Timestamptz(3)
+  endedAt   DateTime?       @db.Timestamptz(3)
+
+  participants MatchParticipant[] @relation("MatchParticipants")
+  commands     GameCommand[]
+
+  @@unique([roomCode, id])
+  @@index([status, startedAt])
+}
+
+/// Idempotency keys for state-changing client commands. Duplicate keys are rejected per match.
+model GameCommand {
+  id        String   @id @default(uuid()) @db.Uuid
+  roomCode  String
+  matchId   String   @db.Uuid
+  commandId String
+  actorId   String   @db.Uuid
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+
+  match Match @relation(fields: [roomCode, matchId], references: [roomCode, id], onDelete: Cascade)
+
+  @@unique([roomCode, commandId])
+  @@index([matchId, createdAt])
+}
+
+/// Final scoring fields are null for an ended match with no result.
+model MatchParticipant {
+  id String @id @default(uuid()) @db.Uuid
+
+  roomCode String
+  matchId  String @db.Uuid
+  match    Match  @relation("MatchParticipants", fields: [roomCode, matchId], references: [roomCode, id], onDelete: Cascade)
+
+  roomPlayerId String     @db.Uuid
+  roomPlayer   RoomPlayer @relation("PlayerMatch", fields: [roomCode, roomPlayerId], references: [roomCode, id], onDelete: Cascade)
+
+  seatOrder Int
+  status    MatchParticipantStatus @default(ACTIVE)
+
+  /// Final result snapshots; score = quartetValueSum × quartetCount.
+  quartetCount    Int?
+  quartetValueSum Int?
+  finalScore      Int?
+  isWinner        Boolean?
+
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+
+  @@unique([roomCode, roomPlayerId])
+  @@unique([matchId, seatOrder])
+  @@index([matchId, status])
+}
+
+/// Stores only public room/match events. Submitted Kuhhandel cards may be recorded here;
+/// failed-payment hand reveals and all other private hand data have no storage field.
+model PublicGameEvent {
+  id       String @id @default(uuid()) @db.Uuid
+  roomCode String
+  room     Room   @relation(fields: [roomCode], references: [code], onDelete: Cascade)
+
+  sequence   Int
+  eventType  PublicGameEventType
+  occurredAt DateTime            @default(now()) @db.Timestamptz(3)
+
+  actorPlayerId  String?     @db.Uuid
+  actor          RoomPlayer? @relation("PublicEventActor", fields: [roomCode, actorPlayerId], references: [roomCode, id], onDelete: Cascade)
+  targetPlayerId String?     @db.Uuid
+  target         RoomPlayer? @relation("PublicEventTarget", fields: [roomCode, targetPlayerId], references: [roomCode, id], onDelete: Cascade)
+
+  animalType      AnimalType?
+  animalCardCount Int?
+  amount          Int?
+  outcomeCode     String?
+  reasonCode      String?
+
+  /// Populated only for publicly submitted Kuhhandel offers, including an empty offer as [].
+  /// Never populate this with failed-payment reveal denominations.
+  submittedMoneyDenominations Int[] @default([])
+  submittedMoneyValue         Int?
+
+  @@unique([roomCode, sequence])
+  @@index([roomCode, eventType, sequence])
+  @@index([roomCode, actorPlayerId, sequence])
+  @@index([roomCode, targetPlayerId, sequence])
+  @@index([occurredAt])
+}
+
+/// Internal audit records deliberately have no foreign keys to temporary room data,
+/// so they survive room cleanup. Retain for 90 days from occurredAt; never store secrets here.
+/// A scheduled cleanup must delete expired rows. Append-only enforcement requires database access policy or a trigger.
+model AuditLogEvent {
+  id         String            @id @default(uuid()) @db.Uuid
+  eventType  AuditLogEventType
+  occurredAt DateTime          @default(now()) @db.Timestamptz(3)
+
+  /// Snapshot identifiers, not relations: the associated room/match may be deleted.
+  roomCode        String?
+  matchId         String? @db.Uuid
+  actorPlayerId   String? @db.Uuid
+  subjectPlayerId String? @db.Uuid
+
+  operationCode String?
+  reasonCode    String?
+  errorType     String?
+  errorCode     String?
+
+  @@index([roomCode, occurredAt])
+  @@index([matchId, occurredAt])
+  @@index([eventType, occurredAt])
+  @@index([actorPlayerId, occurredAt])
+  @@index([occurredAt])
+}

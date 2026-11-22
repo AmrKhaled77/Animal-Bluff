@@ -267,7 +267,7 @@ export class GameService {
     matchId: string,
     state: GameState,
   ): Promise<void> {
-    await tx.$executeRaw`UPDATE "Match" SET "state" = ${JSON.stringify(state)}::jsonb, "phase" = ${dbPhase(state.phase)}::"MatchPhase", "version" = "version" + 1 WHERE "id" = ${matchId}`;
+    await tx.$executeRaw`UPDATE "Match" SET "state" = ${JSON.stringify(state)}::jsonb, "phase" = ${dbPhase(state.phase)}::"MatchPhase", "version" = "version" + 1 WHERE "id" = ${matchId}::uuid`;
   }
 
   private async persistEvents(

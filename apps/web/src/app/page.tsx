@@ -275,6 +275,10 @@ const words = {
       "Everyone must be ready; at least three players are required.",
     myCards: "Your money cards",
     animalsOwned: "Animal collection",
+    animalCards: "animal cards",
+    emptySet: "No cards yet",
+    selected: "selected",
+    clearSelection: "Clear",
     statistics: "Match statistics",
     auctionsPlayed: "Auctions participated in",
     auctionsWon: "Auctions won",
@@ -379,6 +383,10 @@ const words = {
       "يجب أن يكون الجميع جاهزين مع وجود ثلاثة لاعبين على الأقل.",
     myCards: "أوراق المال الخاصة بك",
     animalsOwned: "مجموعة الحيوانات",
+    animalCards: "بطاقات الحيوانات",
+    emptySet: "لا توجد بطاقات بعد",
+    selected: "محددة",
+    clearSelection: "مسح",
     statistics: "إحصاءات المباراة",
     auctionsPlayed: "المزادات التي شاركت فيها",
     auctionsWon: "المزادات التي فزت بها",
@@ -407,12 +415,18 @@ async function request<T>(
   body?: unknown,
   method = "POST",
 ): Promise<T> {
-  const response = await fetch(`${server}${path}`, {
-    method,
-    headers: body ? { "content-type": "application/json" } : undefined,
-    body: body ? JSON.stringify(body) : undefined,
-    cache: "no-store",
-  });
+  let response: Response;
+  try {
+    response = await fetch(`${server}${path}`, {
+      method,
+      headers: body ? { "content-type": "application/json" } : undefined,
+      body: body ? JSON.stringify(body) : undefined,
+      cache: "no-store",
+    });
+  } catch (error) {
+    if (error instanceof TypeError) throw new Error("SERVER_UNAVAILABLE");
+    throw error;
+  }
   const data =
     response.status === 204
       ? undefined
@@ -455,6 +469,14 @@ function animalIcon(animal: string) {
 }
 function errorText(code: string, lang: Language) {
   const en: Record<string, string> = {
+    INTERNAL_ERROR:
+      process.env.NODE_ENV === "development"
+        ? "The game server encountered an unexpected error. Check the backend terminal for details."
+        : "The game could not complete that request. Please try again.",
+    SERVER_UNAVAILABLE:
+      process.env.NODE_ENV === "development"
+        ? "Cannot reach the game server. Check that the backend is running on port 2567."
+        : "The game server is unavailable. Please try again shortly.",
     INVALID_INPUT: "Check the nickname and try again.",
     INVALID_AVATAR: "Choose one of the built-in animals.",
     ROOM_NOT_FOUND: "That room could not be found.",
@@ -475,6 +497,14 @@ function errorText(code: string, lang: Language) {
     RULE_DECISION_REQUIRED: words[lang].waitingDecision,
   };
   const ar: Record<string, string> = {
+    INTERNAL_ERROR:
+      process.env.NODE_ENV === "development"
+        ? "حدث خطأ غير متوقع في خادم اللعبة. راجع سجل الخادم للتفاصيل."
+        : "تعذر تنفيذ الطلب. حاول مرة أخرى.",
+    SERVER_UNAVAILABLE:
+      process.env.NODE_ENV === "development"
+        ? "تعذر الاتصال بخادم اللعبة. تحقق من تشغيل الخادم على المنفذ 2567."
+        : "خادم اللعبة غير متاح. حاول مرة أخرى بعد قليل.",
     INVALID_INPUT: "تحقق من الاسم وحاول مرة أخرى.",
     INVALID_AVATAR: "اختر حيواناً من القائمة.",
     ROOM_NOT_FOUND: "تعذر العثور على هذه الغرفة.",
@@ -2061,10 +2091,26 @@ export default function HomePage() {
                 )}
               </div>
             )}
-            <h2>{t.animalsOwned}</h2>
+            <div className="collection-heading">
+              <div>
+                <span className="eyebrow">{t.game}</span>
+                <h2>{t.animalsOwned}</h2>
+              </div>
+              <span className="status-pill">
+                {game.animals.filter((card) => card.ownerId === self).length}{" "}
+                {t.animalCards}
+              </span>
+            </div>
             {game.players.map((player) => (
               <section className="player-collection" key={player.id}>
-                <h3>{player.nickname}</h3>
+                <h3>
+                  {player.nickname}
+                  {player.id === self && (
+                    <span className="you-tag">
+                      {lang === "ar" ? "أنت" : "You"}
+                    </span>
+                  )}
+                </h3>
                 <div className="collection">
                   {animals.map((animal) => {
                     const cards = game.animals.filter(
@@ -2074,43 +2120,73 @@ export default function HomePage() {
                     return (
                       <details
                         key={`${player.id}-${animal}`}
-                        className={
-                          cards.length === 4 ? "quartet" : "animal-chip"
-                        }
+                        className={`animal-card-group ${cards.length === 4 ? "quartet" : cards.length ? "has-animals" : "empty-animal"}`}
                       >
                         <summary>
-                          {animalIcon(animal)} {avatarName(animal, lang)}{" "}
-                          {cards.length}/4 · {values[animal]}
+                          <span className="animal-card-art" aria-hidden="true">
+                            {animalIcon(animal)}
+                          </span>
+                          <span className="animal-card-info">
+                            <strong>{avatarName(animal, lang)}</strong>
+                            <small>
+                              {values[animal]}{" "}
+                              {lang === "ar"
+                                ? "قيمة الرباعية"
+                                : "quartet value"}
+                            </small>
+                          </span>
+                          <span className="animal-count">{cards.length}/4</span>
                         </summary>
-                        {cards.map((card) => (
-                          <small className="animal-card-id" key={card.id}>
-                            {card.id.slice(0, 8)}
-                            {card.acquisitionSource && (
-                              <span>
-                                {" · "}
-                                {card.acquisitionSource === "AUCTION"
-                                  ? t.auctionSource
-                                  : t.tradeSource}
-                              </span>
-                            )}
-                            {card.acquiredAt && (
-                              <span>
-                                {" · "}
-                                {t.acquired}:{" "}
-                                {new Date(card.acquiredAt).toLocaleString(lang)}
-                              </span>
-                            )}
-                            {card.previousOwnerId && (
-                              <span>
-                                {" · "}
-                                {t.previousOwner}:{" "}
-                                {game.players.find(
-                                  (p) => p.id === card.previousOwnerId,
-                                )?.nickname ?? "—"}
-                              </span>
-                            )}
-                          </small>
-                        ))}
+                        <div className="animal-card-details">
+                          {cards.length ? (
+                            <div
+                              className="mini-card-row"
+                              aria-label={`${cards.length} ${avatarName(animal, lang)} cards`}
+                            >
+                              {cards.map((card) => (
+                                <span
+                                  className="mini-animal-card"
+                                  key={card.id}
+                                  aria-hidden="true"
+                                >
+                                  {animalIcon(animal)}
+                                </span>
+                              ))}
+                            </div>
+                          ) : (
+                            <small className="muted">{t.emptySet}</small>
+                          )}
+                          {cards.map((card) => (
+                            <small className="animal-card-id" key={card.id}>
+                              {card.acquisitionSource && (
+                                <span>
+                                  {" · "}
+                                  {card.acquisitionSource === "AUCTION"
+                                    ? t.auctionSource
+                                    : t.tradeSource}
+                                </span>
+                              )}
+                              {card.acquiredAt && (
+                                <span>
+                                  {" · "}
+                                  {t.acquired}:{" "}
+                                  {new Date(card.acquiredAt).toLocaleString(
+                                    lang,
+                                  )}
+                                </span>
+                              )}
+                              {card.previousOwnerId && (
+                                <span>
+                                  {" · "}
+                                  {t.previousOwner}:{" "}
+                                  {game.players.find(
+                                    (p) => p.id === card.previousOwnerId,
+                                  )?.nickname ?? "—"}
+                                </span>
+                              )}
+                            </small>
+                          ))}
+                        </div>
                       </details>
                     );
                   })}
@@ -2119,20 +2195,52 @@ export default function HomePage() {
             ))}
           </div>
           <aside className="panel hand-panel">
-            <h2>{t.myCards}</h2>
-            <p className="muted">
-              {t.amount}:{" "}
-              {game.ownMoney.reduce((sum, card) => sum + card.value, 0)}
+            <div className="hand-heading">
+              <div>
+                <span className="eyebrow">
+                  {lang === "ar" ? "أوراقك الخاصة" : "PRIVATE HAND"}
+                </span>
+                <h2>{t.myCards}</h2>
+              </div>
+              <span className="hand-total">
+                {game.ownMoney.reduce((sum, card) => sum + card.value, 0)}
+                <small>{t.amount}</small>
+              </span>
+            </div>
+            <p className="hand-hint">
+              {lang === "ar"
+                ? "اختر الأوراق عند الدفع أو تقديم عرض."
+                : "Select cards when paying or making an offer."}
             </p>
+            {selectedCards.length > 0 && (
+              <div className="selection-summary" aria-live="polite">
+                <span>
+                  {selectedCards.length} {t.selected} · {filteredOfferValue}{" "}
+                  {t.amount}
+                </span>
+                <button
+                  type="button"
+                  className="clear-selection"
+                  onClick={() => setSelectedCards([])}
+                >
+                  {t.clearSelection}
+                </button>
+              </div>
+            )}
             <div className="money-cards">
               {game.ownMoney.map((card) => (
                 <button
                   key={card.id}
                   className={`money-card ${selectedCards.includes(card.id) ? "selected-card" : ""}`}
+                  aria-pressed={selectedCards.includes(card.id)}
+                  aria-label={`${card.value} ${lang === "ar" ? "ورقة مال" : "money card"}${selectedCards.includes(card.id) ? `, ${lang === "ar" ? "محدد" : "selected"}` : ""}`}
                   onClick={() => toggleCard(card.id)}
                 >
+                  <span className="money-card-corner" aria-hidden="true">
+                    ✦
+                  </span>
                   <strong>{card.value}</strong>
-                  <small>money</small>
+                  <small>{lang === "ar" ? "مال" : "MONEY"}</small>
                 </button>
               ))}
             </div>

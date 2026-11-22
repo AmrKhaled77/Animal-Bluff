@@ -302,6 +302,12 @@ const httpServer = createServer(
         }
         sendJson(response, 404, { error: { code: "NOT_FOUND" } });
       } catch (error) {
+        if (
+          !(error instanceof ServiceError) &&
+          !(error instanceof RoomError) &&
+          !(error instanceof SyntaxError)
+        )
+          console.error("HTTP request processing failed:", error);
         await auditRequestFailure(request, error);
         handleError(error, response);
       }
@@ -317,40 +323,64 @@ gameServer
   .define("animal-bluff", AnimalBluffRealtimeRoom)
   .filterBy(["roomCode"]);
 
-void gameServer.listen(port, host).then(() => {
-  console.log(`Animal Bluff server listening on http://${host}:${port}`);
-});
+let workersStarted = false;
+function startBackgroundWorkers(): void {
+  if (workersStarted) return;
+  workersStarted = true;
 
-const maintenanceTimer = setInterval(
-  () => {
+  const maintenanceTimer = setInterval(
+    () => {
+      void rooms.pruneAuditLog().catch((error: unknown) => {
+        console.error("Audit retention cleanup failed:", error);
+      });
+    },
+    6 * 60 * 60_000,
+  );
+  maintenanceTimer.unref();
+
+  let schedulerTick = 0;
+  let schedulerRunning = false;
+  const actionTimer = setInterval(() => {
+    if (schedulerRunning) return;
+    schedulerRunning = true;
+    void (async () => {
+      await rooms.forfeitExpired();
+      await games.processDueTimers();
+      if (++schedulerTick % 4 === 0) await rooms.cleanupExpired();
+    })()
+      .catch((error: unknown) => {
+        console.error("Game timer processing failed:", error);
+      })
+      .finally(() => {
+        schedulerRunning = false;
+      });
+  }, 250);
+  actionTimer.unref();
+
+  let monitoringRunning = false;
+  const heartbeatTimer = setInterval(() => {
+    if (monitoringRunning) return;
+    monitoringRunning = true;
     void rooms
-      .pruneAuditLog()
-      .catch(() => console.error("Audit retention cleanup failed"));
-  },
-  6 * 60 * 60_000,
-);
-maintenanceTimer.unref();
+      .markStaleConnections()
+      .catch((error: unknown) => {
+        console.error("Connection monitoring failed:", error);
+      })
+      .finally(() => {
+        monitoringRunning = false;
+      });
+  }, 2_000);
+  heartbeatTimer.unref();
+}
 
-let schedulerTick = 0;
-let schedulerRunning = false;
-const actionTimer = setInterval(() => {
-  if (schedulerRunning) return;
-  schedulerRunning = true;
-  void (async () => {
-    await rooms.forfeitExpired();
-    await games.processDueTimers();
-    if (++schedulerTick % 4 === 0) await rooms.cleanupExpired();
-  })()
-    .catch(() => console.error("Game timer processing failed"))
-    .finally(() => {
-      schedulerRunning = false;
-    });
-}, 250);
-actionTimer.unref();
-
-const heartbeatTimer = setInterval(() => {
-  void rooms
-    .markStaleConnections()
-    .catch(() => console.error("Connection monitoring failed"));
-}, 2_000);
-heartbeatTimer.unref();
+void (async () => {
+  try {
+    await prisma.$connect();
+    await gameServer.listen(port, host);
+    startBackgroundWorkers();
+    console.log(`Animal Bluff server listening on http://${host}:${port}`);
+  } catch (error) {
+    console.error("Animal Bluff server startup failed:", error);
+    process.exitCode = 1;
+  }
+})();

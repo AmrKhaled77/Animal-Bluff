@@ -496,6 +496,290 @@ select:focus-visible {
   opacity: 0.75;
 }
 
+.collection-heading,
+.hand-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  margin-top: 28px;
+}
+.collection-heading h2,
+.hand-heading h2 {
+  margin: 5px 0 0;
+}
+.you-tag {
+  display: inline-flex;
+  margin-inline-start: 8px;
+  padding: 3px 8px;
+  border-radius: 20px;
+  color: var(--green);
+  background: #e7efe3;
+  font-size: 0.68rem;
+  vertical-align: middle;
+}
+.collection {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(155px, 1fr));
+  align-items: start;
+  gap: 10px;
+}
+.animal-card-group {
+  display: block;
+  min-width: 0;
+  padding: 9px;
+  border: 1px solid #e4dece;
+  border-radius: 16px;
+  background: linear-gradient(145deg, #fffefa, #f7f3e8);
+  color: var(--ink);
+  box-shadow: 0 3px 10px #453d2910;
+  transition:
+    transform 180ms ease,
+    box-shadow 180ms ease,
+    border-color 180ms ease;
+}
+.animal-card-group:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 18px #453d291a;
+}
+.animal-card-group[open] {
+  border-color: #9daf91;
+}
+.animal-card-group summary {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-height: 57px;
+  cursor: pointer;
+  list-style: none;
+}
+.animal-card-group summary::-webkit-details-marker {
+  display: none;
+}
+.animal-card-group summary:focus-visible {
+  outline: 3px solid #245a83;
+  outline-offset: 3px;
+  border-radius: 10px;
+}
+.empty-animal .animal-card-art {
+  filter: saturate(0.45);
+  opacity: 0.78;
+}
+.animal-card-art {
+  display: grid;
+  place-items: center;
+  flex: 0 0 42px;
+  height: 48px;
+  border: 1px solid #eadfca;
+  border-radius: 11px;
+  background: #fff8e8;
+  font-size: 1.55rem;
+}
+.animal-card-info {
+  display: grid;
+  min-width: 0;
+  gap: 3px;
+}
+.animal-card-info strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.animal-card-info small {
+  color: var(--muted);
+  font-size: 0.64rem;
+}
+.animal-count {
+  margin-inline-start: auto;
+  padding: 5px 7px;
+  border-radius: 9px;
+  background: #efede5;
+  color: #6e715f;
+  font-size: 0.7rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.has-animals .animal-count {
+  background: #e5efdf;
+  color: var(--green);
+}
+.quartet.animal-card-group {
+  border-color: #c9a94d;
+  background: linear-gradient(145deg, #fff9dc, #fffefa 75%);
+  animation: quartet-glow 1.2s ease-out both;
+}
+.quartet .animal-count {
+  background: #f4e7b6;
+}
+.animal-card-details {
+  display: grid;
+  gap: 5px;
+  padding: 9px 3px 2px;
+  border-top: 1px solid #eee8da;
+}
+.mini-card-row {
+  display: flex;
+  padding-inline-start: 2px;
+}
+.mini-animal-card {
+  display: grid;
+  place-items: center;
+  width: 35px;
+  height: 43px;
+  margin-inline-start: -3px;
+  border: 1px solid #d9cbaa;
+  border-radius: 7px;
+  background: linear-gradient(160deg, #fffdf7, #f3ebd7);
+  box-shadow: 0 2px 4px #443a2819;
+  font-size: 1.2rem;
+  animation: card-arrive 360ms ease both;
+}
+.mini-animal-card:nth-child(2) {
+  animation-delay: 35ms;
+}
+.mini-animal-card:nth-child(3) {
+  animation-delay: 70ms;
+}
+.mini-animal-card:nth-child(4) {
+  animation-delay: 105ms;
+}
+.animal-card-id {
+  color: var(--muted);
+  font-size: 0.65rem;
+  line-height: 1.45;
+}
+.hand-heading {
+  margin-top: 0;
+}
+.hand-heading h2 {
+  font-size: 1.1rem;
+}
+.hand-total {
+  display: grid;
+  justify-items: end;
+  font-size: 1.35rem;
+  font-weight: 700;
+  color: var(--green);
+}
+.hand-total small {
+  color: var(--muted);
+  font-size: 0.66rem;
+  font-weight: 500;
+}
+.hand-hint {
+  margin: 10px 0 4px;
+  color: var(--muted);
+  font-size: 0.77rem;
+  line-height: 1.5;
+}
+.selection-summary {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  margin: 8px 0 12px;
+  padding: 9px 11px;
+  border: 1px solid #cfdfc6;
+  border-radius: 11px;
+  background: #eef5e9;
+  color: var(--green);
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+.clear-selection {
+  padding: 4px 7px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--green);
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+.clear-selection:hover {
+  background: #dfead9;
+}
+.money-card {
+  position: relative;
+  overflow: hidden;
+  min-height: 82px;
+  border-radius: 14px;
+  box-shadow: 0 3px 8px #6e572411;
+  transition:
+    transform 160ms ease,
+    box-shadow 160ms ease,
+    border-color 160ms ease;
+}
+.money-card:hover:not(:disabled) {
+  transform: translateY(-3px) rotate(-1deg);
+  box-shadow: 0 8px 15px #6e572422;
+}
+.money-card strong {
+  font-size: 1.25rem;
+}
+.money-card small {
+  letter-spacing: 0.1em;
+  font-weight: 700;
+}
+.money-card-corner {
+  position: absolute;
+  top: 5px;
+  inset-inline-end: 8px;
+  color: #b99b52;
+  font-size: 0.7rem;
+}
+.selected-card {
+  outline: 3px solid #5e875f;
+  outline-offset: 1px;
+  transform: translateY(-4px);
+  background: linear-gradient(#f4ffed, #e2efd8);
+}
+.seat {
+  transition:
+    transform 180ms ease,
+    box-shadow 180ms ease;
+}
+.active-seat {
+  animation: turn-arrive 380ms ease both;
+}
+.action-panel {
+  animation: panel-arrive 240ms ease both;
+}
+@keyframes card-arrive {
+  from {
+    opacity: 0;
+    transform: translateY(7px) scale(0.94);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+@keyframes panel-arrive {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+@keyframes turn-arrive {
+  from {
+    box-shadow: 0 0 0 0 #7ba08400;
+  }
+  to {
+    box-shadow: 0 0 0 3px #7ba08435;
+  }
+}
+@keyframes quartet-glow {
+  0% {
+    box-shadow: 0 0 0 0 #d8a74266;
+  }
+  100% {
+    box-shadow: 0 3px 10px #453d2910;
+  }
+}
+
 .match-statistics article {
   border-top: 1px solid var(--line);
   padding-block: 0.45rem;
@@ -758,5 +1042,37 @@ footer {
   }
   .log-filters {
     grid-template-columns: 1fr;
+  }
+  .collection-heading {
+    align-items: flex-end;
+  }
+  .collection-heading .status-pill {
+    font-size: 0.68rem;
+    padding: 6px 9px;
+  }
+  .collection {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 7px;
+  }
+  .animal-card-group {
+    padding: 7px;
+  }
+  .animal-card-group summary {
+    gap: 6px;
+  }
+  .animal-card-art {
+    flex-basis: 34px;
+    height: 42px;
+    font-size: 1.25rem;
+  }
+  .animal-card-info strong {
+    font-size: 0.78rem;
+  }
+  .animal-card-info small {
+    font-size: 0.56rem;
+  }
+  .animal-count {
+    padding: 4px 5px;
+    font-size: 0.62rem;
   }
 }

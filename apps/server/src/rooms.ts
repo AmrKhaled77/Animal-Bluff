@@ -525,6 +525,14 @@ export class RoomService {
     >`SELECT "id", "state" FROM "Match" WHERE "roomCode" = ${roomCode} AND "status" = 'ACTIVE' FOR UPDATE`;
     const match = rows[0];
     if (!match?.state) return null;
+    const matchPlayer = match.state.players.find(
+      (player) => player.id === playerId,
+    );
+    // A concurrent disconnect can win the match-state update after another
+    // caller has read the still-connected room row. Treat that exact transition
+    // as already applied; the caller reconciles the room row below.
+    if (change === "DISCONNECTED" && matchPlayer?.status === "DISCONNECTED")
+      return match.state;
     const result =
       change === "DISCONNECTED"
         ? markGameDisconnected(match.state, playerId, now.getTime())
@@ -673,8 +681,12 @@ export class RoomService {
       if (staleBefore && player.updatedAt >= staleBefore) return;
       if (player.status !== "CONNECTED") return;
       const now = this.now();
-      await tx.roomPlayer.update({
-        where: { id: player.id },
+      const disconnected = await tx.roomPlayer.updateMany({
+        where: {
+          id: player.id,
+          status: "CONNECTED",
+          ...(staleBefore ? { updatedAt: { lt: staleBefore } } : {}),
+        },
         data: {
           status: "DISCONNECTED",
           isReady: false,
@@ -682,6 +694,7 @@ export class RoomService {
           reconnectExpiresAt: new Date(now.getTime() + 60_000),
         },
       });
+      if (disconnected.count === 0) return;
       const gameState = await this.updateMatchConnection(
         tx,
         roomCode,
@@ -689,6 +702,21 @@ export class RoomService {
         "DISCONNECTED",
         now,
       );
+      const matchPlayer = gameState?.players.find(
+        (candidate) => candidate.id === player.id,
+      );
+      if (
+        matchPlayer?.status === "DISCONNECTED" &&
+        matchPlayer.reconnectExpiresAt !== null &&
+        matchPlayer.reconnectExpiresAt !== undefined
+      ) {
+        const matchDeadline = new Date(matchPlayer.reconnectExpiresAt);
+        if (matchDeadline.getTime() !== now.getTime() + 60_000)
+          await tx.roomPlayer.update({
+            where: { id: player.id },
+            data: { reconnectExpiresAt: matchDeadline },
+          });
+      }
       const room = await tx.room.findUniqueOrThrow({
         where: { code: roomCode },
         select: { hostPlayerId: true },

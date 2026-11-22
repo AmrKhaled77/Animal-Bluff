@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
+import { createInitialGame, type GameState } from "./game-engine.js";
 import { RoomService, RoomError, type GuestInput } from "./rooms.js";
 
 type Player = {
@@ -11,7 +12,9 @@ type Player = {
   status: string;
   isReady: boolean;
   reconnectToken: string | null;
+  reconnectExpiresAt?: Date | null;
   removedAt: Date | null;
+  updatedAt?: Date;
 };
 type Room = {
   code: string;
@@ -36,6 +39,7 @@ class MemoryDb {
     sequence: number;
     eventType: string;
   }> = [];
+  activeMatch: { id: string; state: GameState } | null = null;
   private chain: Promise<void> = Promise.resolve();
   roomCodeReservation = {
     create: async ({ data }: { data: { code: string } }) => {
@@ -64,6 +68,7 @@ class MemoryDb {
         status: "CONNECTED",
         isReady: false,
         removedAt: null,
+        updatedAt: new Date(),
       });
     },
     findUnique: async ({
@@ -115,6 +120,30 @@ class MemoryDb {
       if (!player) throw new Error("Player not found");
       Object.assign(player, data);
       return player;
+    },
+    updateMany: async ({
+      where,
+      data,
+    }: {
+      where: {
+        id: string;
+        status: string;
+        updatedAt?: { lt: Date };
+      };
+      data: Partial<Player>;
+    }) => {
+      const player = this.players.find(
+        (candidate) => candidate.id === where.id,
+      );
+      if (
+        !player ||
+        player.status !== where.status ||
+        (where.updatedAt &&
+          (!player.updatedAt || player.updatedAt >= where.updatedAt.lt))
+      )
+        return { count: 0 };
+      Object.assign(player, data, { updatedAt: new Date() });
+      return { count: 1 };
     },
   };
   room = {
@@ -227,7 +256,9 @@ class MemoryDb {
       this.publicEvents.push(data);
     },
   };
-  async $queryRaw() {
+  async $queryRaw(strings: TemplateStringsArray) {
+    if (strings.join("").includes('FROM "Match"') && this.activeMatch)
+      return [this.activeMatch];
     return [];
   }
   async $transaction<T>(callback: (tx: this) => Promise<T>): Promise<T> {
@@ -254,6 +285,69 @@ function service(db = new MemoryDb(), now = new Date("2026-01-01T00:00:00Z")) {
 }
 
 describe("room creation and guest lobby", () => {
+  it("reconciles a stale room record when the match already recorded disconnect", async () => {
+    const { db, rooms } = service();
+    const host = await rooms.create(guest("Host"));
+    const game = createInitialGame(
+      [
+        {
+          id: host.playerId,
+          nickname: "Host",
+          avatar: "HORSE",
+          joinOrder: 1,
+          status: "CONNECTED",
+        },
+        {
+          id: "player-two",
+          nickname: "Guest Two",
+          avatar: "COW",
+          joinOrder: 2,
+          status: "CONNECTED",
+        },
+        {
+          id: "player-three",
+          nickname: "Guest Three",
+          avatar: "PIG",
+          joinOrder: 3,
+          status: "CONNECTED",
+        },
+      ],
+      new Date("2026-01-01T00:00:00Z").getTime(),
+    );
+    game.players[0]!.status = "DISCONNECTED";
+    game.players[0]!.reconnectExpiresAt = new Date(
+      "2026-01-01T00:00:30Z",
+    ).getTime();
+    db.activeMatch = { id: "match-a", state: game };
+    const publicEventsBefore = db.publicEvents.length;
+
+    await rooms.disconnect(host.lobby.code, host.reconnectToken);
+
+    assert.equal(db.players[0]?.status, "DISCONNECTED");
+    assert.equal(
+      db.players[0]?.reconnectExpiresAt?.getTime(),
+      game.players[0]?.reconnectExpiresAt,
+    );
+    assert.equal(db.publicEvents.length, publicEventsBefore);
+  });
+
+  it("ignores a stale scan that loses the atomic disconnect update", async () => {
+    const { db, rooms } = service();
+    const host = await rooms.create(guest("Host"));
+    const updateMany = db.roomPlayer.updateMany;
+    db.roomPlayer.updateMany = async ({ where }) => {
+      const player = db.players.find((candidate) => candidate.id === where.id);
+      if (player) player.status = "DISCONNECTED";
+      return { count: 0 };
+    };
+
+    await rooms.disconnect(host.lobby.code, host.reconnectToken);
+
+    assert.equal(db.players[0]?.status, "DISCONNECTED");
+    assert.equal(db.publicEvents.length, 1);
+    db.roomPlayer.updateMany = updateMany;
+  });
+
   it("creates a reserved lobby, assigns creator as host, and sets the 30-minute deadline", async () => {
     const { db, rooms } = service();
     const result = await rooms.create(guest("Amr"));

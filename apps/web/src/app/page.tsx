@@ -276,6 +276,8 @@ const words = {
     myCards: "Your money cards",
     animalsOwned: "Animal collection",
     animalCards: "animal cards",
+    animalsCount: "animals",
+    you: "you",
     emptySet: "No cards yet",
     selected: "selected",
     clearSelection: "Clear",
@@ -384,6 +386,8 @@ const words = {
     myCards: "أوراق المال الخاصة بك",
     animalsOwned: "مجموعة الحيوانات",
     animalCards: "بطاقات الحيوانات",
+    animalsCount: "حيوان",
+    you: "أنت",
     emptySet: "لا توجد بطاقات بعد",
     selected: "محددة",
     clearSelection: "مسح",
@@ -1660,28 +1664,61 @@ export default function HomePage() {
                 )}
               </div>
             </div>
-            <div className="table-players">
-              {game.players.map((p) => (
-                <article
-                  className={`seat ${p.id === game.currentPlayerId ? "active-seat" : ""}`}
-                  key={p.id}
-                >
-                  <span
-                    className="avatar"
-                    aria-label={avatarName(p.avatar, lang)}
+            <div
+              className={`table-players table-players-${game.players.length}`}
+            >
+              {game.players.map((p, index) => {
+                const ownedAnimals = game.animals.filter(
+                  (card) => card.ownerId === p.id,
+                );
+                return (
+                  <article
+                    className={`seat seat-position-${index} ${p.id === game.currentPlayerId ? "active-seat" : ""}`}
+                    key={p.id}
                   >
-                    {animalIcon(p.avatar)}
-                  </span>
-                  <strong>
-                    {p.nickname}
-                    {p.id === self ? " (you)" : ""}
-                  </strong>
-                  <small>
-                    {game.animals.filter((a) => a.ownerId === p.id).length}{" "}
-                    animals
-                  </small>
-                </article>
-              ))}
+                    <span
+                      className="avatar"
+                      aria-label={avatarName(p.avatar, lang)}
+                    >
+                      {animalIcon(p.avatar)}
+                    </span>
+                    <strong>
+                      {p.nickname}
+                      {p.id === self ? ` (${t.you})` : ""}
+                    </strong>
+                    <small>
+                      {ownedAnimals.length} {t.animalsCount}
+                    </small>
+                    <div
+                      className="seat-card-tray"
+                      aria-label={`${p.nickname} · ${t.animalCards}`}
+                    >
+                      {ownedAnimals.length ? (
+                        ownedAnimals.map((card) => (
+                          <span
+                            className="seat-animal-card"
+                            key={card.id}
+                            role="img"
+                            aria-label={avatarName(card.type ?? "", lang)}
+                            title={avatarName(card.type ?? "", lang)}
+                          >
+                            <span aria-hidden="true">
+                              {animalIcon(card.type ?? "")}
+                            </span>
+                            <small>{avatarName(card.type ?? "", lang)}</small>
+                          </span>
+                        ))
+                      ) : (
+                        <span className="seat-no-cards">{t.emptySet}</span>
+                      )}
+                    </div>
+                  </article>
+                );
+              })}
+              <div className="table-center" aria-hidden="true">
+                <span>♞</span>
+                <strong>{t.title}</strong>
+              </div>
             </div>
             {game.phase === "RULE_DECISION_REQUIRED" && (
               <div className="notice error">{t.waitingDecision}</div>
@@ -1689,55 +1726,70 @@ export default function HomePage() {
             {game.phase === "ENDED_NO_RESULT" && (
               <div className="notice">{t.noResult}</div>
             )}
-            {game.phase === "TURN" &&
-              game.currentPlayerId === self &&
-              game.animals.some((a) => a.ownerId === null) && (
-                <button
-                  className="primary action-button"
-                  disabled={busy}
-                  onClick={() => void action({ type: "startAuction" })}
-                >
-                  {t.auction}
-                </button>
-              )}
-            {game.phase === "TURN" &&
-              game.currentPlayerId === self &&
-              eligibleTradeTypes.length > 0 && (
-                <div className="trade-controls">
-                  <h2>{t.trade}</h2>
-                  <div className="button-row">
-                    <select
-                      value={selectedTradeAnimal}
-                      onChange={(e) => {
-                        setTradeAnimal(e.target.value);
-                        setTradeTarget("");
-                      }}
+            {game.phase === "TURN" && game.currentPlayerId === self && (
+              <div
+                className={`turn-action-table ${game.animals.some((animal) => animal.ownerId === null) ? "has-auction-card" : ""} ${eligibleTradeTypes.length ? "has-trade-cards" : ""}`}
+              >
+                {game.animals.some((animal) => animal.ownerId === null) && (
+                  <button
+                    className="play-action-card auction-action-card"
+                    disabled={busy}
+                    onClick={() => void action({ type: "startAuction" })}
+                  >
+                    <span className="action-card-stack" aria-hidden="true">
+                      <span />
+                      <span />
+                      <span>♞</span>
+                    </span>
+                    <strong>{t.auction}</strong>
+                    <small>
+                      {
+                        game.animals.filter((animal) => animal.ownerId === null)
+                          .length
+                      }{" "}
+                      {t.animalCards}
+                    </small>
+                  </button>
+                )}
+                {eligibleTradeTypes.length > 0 && (
+                  <div className="trade-controls card-trade-controls">
+                    <h2>{t.trade}</h2>
+                    <div
+                      className="trade-animal-hand"
+                      aria-label={t.animalsOwned}
                     >
                       {eligibleTradeTypes.map((animal) => (
-                        <option key={animal} value={animal}>
-                          {animalIcon(animal)} {avatarName(animal, lang)}
-                        </option>
+                        <button
+                          type="button"
+                          className={`trade-animal-card ${selectedTradeAnimal === animal ? "is-selected" : ""}`}
+                          key={animal}
+                          aria-pressed={selectedTradeAnimal === animal}
+                          onClick={() => {
+                            setTradeAnimal(animal);
+                            setTradeTarget("");
+                          }}
+                        >
+                          <span>{animalIcon(animal)}</span>
+                          <small>{avatarName(animal, lang)}</small>
+                        </button>
                       ))}
-                    </select>
-                    <select
-                      value={
-                        eligibleTradeTargets.some(
-                          (player) => player.id === tradeTarget,
-                        )
-                          ? tradeTarget
-                          : ""
-                      }
-                      onChange={(e) => setTradeTarget(e.target.value)}
-                    >
-                      <option value="">{t.target}</option>
-                      {eligibleTradeTargets.map((p) => (
-                        <option key={p.id} value={p.id}>
-                          {p.nickname}
-                        </option>
+                    </div>
+                    <div className="trade-target-hand" aria-label={t.target}>
+                      {eligibleTradeTargets.map((player) => (
+                        <button
+                          type="button"
+                          className={`trade-target-card ${tradeTarget === player.id ? "is-selected" : ""}`}
+                          key={player.id}
+                          aria-pressed={tradeTarget === player.id}
+                          onClick={() => setTradeTarget(player.id)}
+                        >
+                          <span>{animalIcon(player.avatar)}</span>
+                          <small>{player.nickname}</small>
+                        </button>
                       ))}
-                    </select>
+                    </div>
                     <button
-                      className="primary"
+                      className="play-action-card offer-action-card"
                       disabled={
                         busy ||
                         !eligibleTradeTargets.some(
@@ -1753,11 +1805,20 @@ export default function HomePage() {
                         })
                       }
                     >
-                      {t.makeOffer}
+                      <span className="offer-card-art" aria-hidden="true">
+                        ⇄
+                      </span>
+                      <strong>{t.makeOffer}</strong>
+                      <small>
+                        {selectedTradeAnimal
+                          ? avatarName(selectedTradeAnimal, lang)
+                          : t.trade}
+                      </small>
                     </button>
                   </div>
-                </div>
-              )}
+                )}
+              </div>
+            )}
             {game.phase === "AUCTION" && game.auction && (
               <div className="action-panel">
                 {(() => {
@@ -1794,49 +1855,38 @@ export default function HomePage() {
                     </div>
                   );
                 })()}
-                <h2>
-                  {animalIcon(
-                    game.animals.find(
-                      (card) => card.id === game.auction!.animalCardId,
-                    )?.type ?? "",
-                  )}{" "}
-                  {avatarName(
-                    game.animals.find(
-                      (card) => card.id === game.auction!.animalCardId,
-                    )?.type ?? "",
-                    lang,
-                  )}
-                </h2>
-                <p>
-                  {t.auction}:{" "}
-                  {
-                    game.players.find(
-                      (p) => p.id === game.auction!.auctioneerId,
-                    )?.nickname
-                  }
-                </p>
-                <p>
-                  {t.highBidder}:{" "}
-                  {game.auction.highBidderId
-                    ? game.players.find(
-                        (p) => p.id === game.auction!.highBidderId,
-                      )?.nickname
-                    : "—"}
-                  {" · "}
-                  {t.amount}: {game.auction.highBid || "—"}
-                </p>
+                <div className="auction-status-cards">
+                  <div className="auction-player-card">
+                    <small>{t.auction}</small>
+                    <strong>
+                      {
+                        game.players.find(
+                          (player) => player.id === game.auction!.auctioneerId,
+                        )?.nickname
+                      }
+                    </strong>
+                  </div>
+                  <div className="auction-bid-card">
+                    <small>{t.highBidder}</small>
+                    <strong>
+                      {game.auction.highBidderId
+                        ? game.players.find(
+                            (player) =>
+                              player.id === game.auction!.highBidderId,
+                          )?.nickname
+                        : "—"}
+                    </strong>
+                    <span>{game.auction.highBid || "—"}</span>
+                  </div>
+                </div>
                 {game.auction.auctioneerId !== self && (
                   <>
-                    <p>
-                      {t.minimumBid}:{" "}
-                      {game.auction.highBid ? game.auction.highBid + 10 : 1}
-                    </p>
                     <div className="quick-bids">
                       <span>{t.quickBid}</span>
                       {[10, 20, 50, 100].map((increment) => (
                         <button
                           key={increment}
-                          className="small secondary"
+                          className="bid-chip-card"
                           onClick={() =>
                             setBid(game.auction!.highBid + increment)
                           }
@@ -1845,18 +1895,25 @@ export default function HomePage() {
                         </button>
                       ))}
                     </div>
-                    <div className="button-row">
-                      <input
-                        type="number"
-                        min={
-                          game.auction.highBid ? game.auction.highBid + 10 : 1
-                        }
-                        value={bid}
-                        onChange={(e) => setBid(Number(e.target.value))}
-                        aria-label={t.bid}
-                      />
+                    <div className="bid-entry-cards">
+                      <label className="bid-input-card">
+                        <small>{t.bid}</small>
+                        <input
+                          type="number"
+                          min={
+                            game.auction.highBid ? game.auction.highBid + 10 : 1
+                          }
+                          value={bid}
+                          onChange={(e) => setBid(Number(e.target.value))}
+                          aria-label={t.bid}
+                        />
+                        <small>
+                          {t.minimumBid}:{" "}
+                          {game.auction.highBid ? game.auction.highBid + 10 : 1}
+                        </small>
+                      </label>
                       <button
-                        className="primary"
+                        className="play-action-card bid-action-card"
                         disabled={
                           busy ||
                           bid <
@@ -1868,6 +1925,9 @@ export default function HomePage() {
                           void action({ type: "bid", amount: bid })
                         }
                       >
+                        <span className="offer-card-art" aria-hidden="true">
+                          ＋
+                        </span>
                         {t.placeBid}
                       </button>
                     </div>
@@ -1907,28 +1967,31 @@ export default function HomePage() {
             )}
             {game.phase === "AUCTIONEER_CHOICE" && game.auction && (
               <div className="action-panel">
-                <p>
-                  {
-                    game.players.find(
-                      (player) => player.id === game.auction!.highBidderId,
-                    )?.nickname
-                  }
-                  {" · "}
-                  {t.amount}: {game.auction.highBid}
-                </p>
+                <div className="auction-result-ticket">
+                  <small>{t.highBidder}</small>
+                  <strong>
+                    {
+                      game.players.find(
+                        (player) => player.id === game.auction!.highBidderId,
+                      )?.nickname
+                    }
+                  </strong>
+                  <span>{game.auction.highBid}</span>
+                </div>
                 {game.auction.auctioneerId === self && (
-                  <div className="button-row">
+                  <div className="decision-card-row">
                     <button
-                      className="primary"
+                      className="play-action-card decision-playing-card buy-choice-card"
                       disabled={busy}
                       onClick={() =>
                         void action({ type: "chooseAuctioneer", choice: "BUY" })
                       }
                     >
+                      <span aria-hidden="true">🪙</span>
                       {t.buy}
                     </button>
                     <button
-                      className="secondary"
+                      className="play-action-card decision-playing-card pass-choice-card"
                       disabled={busy}
                       onClick={() =>
                         void action({
@@ -1937,6 +2000,7 @@ export default function HomePage() {
                         })
                       }
                     >
+                      <span aria-hidden="true">↪</span>
                       {t.pass}
                     </button>
                   </div>
@@ -1945,34 +2009,46 @@ export default function HomePage() {
             )}
             {game.phase === "PAYMENT" && game.auction && (
               <div className="action-panel">
-                <p>{t.pay}</p>
-                <p>
-                  {
-                    game.players.find(
-                      (player) => player.id === game.auction!.payerId,
-                    )?.nickname
-                  }
-                  {" → "}
-                  {
-                    game.players.find(
-                      (player) => player.id === game.auction!.payeeId,
-                    )?.nickname
-                  }
-                  {" · "}
-                  {t.amount}: {game.auction.due}
-                </p>
+                <div className="payment-ticket">
+                  <span className="eyebrow">{t.pay}</span>
+                  <div className="payment-route-cards">
+                    <strong>
+                      {
+                        game.players.find(
+                          (player) => player.id === game.auction!.payerId,
+                        )?.nickname
+                      }
+                    </strong>
+                    <span aria-hidden="true">➜</span>
+                    <strong>
+                      {
+                        game.players.find(
+                          (player) => player.id === game.auction!.payeeId,
+                        )?.nickname
+                      }
+                    </strong>
+                  </div>
+                  <div className="payment-amount-card">
+                    <small>{t.amount}</small>
+                    <strong>{game.auction.due}</strong>
+                  </div>
+                </div>
                 {game.auction.payerId === self && (
                   <>
-                    <p>
-                      {t.amount}: {filteredOfferValue} / {game.auction.due}
-                      {filteredOfferValue > game.auction.due &&
-                        ` · ${t.noChange}`}
-                    </p>
+                    <div className="payment-progress-card">
+                      <span>{t.amount}</span>
+                      <strong>{filteredOfferValue}</strong>
+                      <span aria-hidden="true">/</span>
+                      <strong>{game.auction.due}</strong>
+                      {filteredOfferValue > game.auction.due && (
+                        <small>{t.noChange}</small>
+                      )}
+                    </div>
                     {filteredOfferValue < game.auction.due && (
                       <p className="notice error">{t.paymentShort}</p>
                     )}
                     <button
-                      className="primary"
+                      className="play-action-card confirm-payment-card"
                       disabled={busy || filteredOfferValue < game.auction.due}
                       onClick={() =>
                         void action({
@@ -1981,6 +2057,7 @@ export default function HomePage() {
                         })
                       }
                     >
+                      <span aria-hidden="true">✓</span>
                       {t.confirm}
                     </button>
                   </>
@@ -1989,41 +2066,84 @@ export default function HomePage() {
             )}
             {game.phase === "NEGOTIATION" && game.negotiation && (
               <div className="action-panel">
-                <p>
-                  {t.challenger}:{" "}
-                  {
-                    game.players.find(
-                      (player) => player.id === game.negotiation!.challengerId,
-                    )?.nickname
-                  }
-                  {" · "}
-                  {t.challenged}:{" "}
-                  {
-                    game.players.find(
-                      (player) => player.id === game.negotiation!.targetId,
-                    )?.nickname
-                  }
-                </p>
-                <p>
-                  {animalIcon(game.negotiation.animalType)}{" "}
-                  {avatarName(game.negotiation.animalType, lang)} ×{" "}
-                  {game.negotiation.cardCount}
-                </p>
-                <p>
-                  {t.initialOffer}:{" "}
-                  {game.negotiation.firstOfferValues.length
-                    ? game.negotiation.firstOfferValues.join(", ")
-                    : t.emptyOffer}
-                  {" · "}
-                  {t.amount}: {game.negotiation.firstOfferTotal}
-                </p>
+                <div className="negotiation-player-cards">
+                  <div className="negotiation-player-card">
+                    <small>{t.challenger}</small>
+                    <strong>
+                      {
+                        game.players.find(
+                          (player) =>
+                            player.id === game.negotiation!.challengerId,
+                        )?.nickname
+                      }
+                    </strong>
+                  </div>
+                  <span aria-hidden="true">⇄</span>
+                  <div className="negotiation-player-card">
+                    <small>{t.challenged}</small>
+                    <strong>
+                      {
+                        game.players.find(
+                          (player) => player.id === game.negotiation!.targetId,
+                        )?.nickname
+                      }
+                    </strong>
+                  </div>
+                </div>
+                <div className="negotiation-stake-card">
+                  <span aria-hidden="true">
+                    {animalIcon(game.negotiation.animalType)}
+                  </span>
+                  <strong>
+                    {avatarName(game.negotiation.animalType, lang)}
+                  </strong>
+                  <small>× {game.negotiation.cardCount}</small>
+                </div>
+                <div className="offer-card-table">
+                  <div className="money-offer-display">
+                    <small>{t.initialOffer}</small>
+                    <div className="money-offer-fan">
+                      {game.negotiation.firstOfferValues.length ? (
+                        game.negotiation.firstOfferValues.map(
+                          (value, index) => (
+                            <span
+                              className="money-offer-card"
+                              key={`${value}-${index}`}
+                            >
+                              {value}
+                            </span>
+                          ),
+                        )
+                      ) : (
+                        <span className="empty-offer-card">{t.emptyOffer}</span>
+                      )}
+                    </div>
+                    <strong>{game.negotiation.firstOfferTotal}</strong>
+                  </div>
+                  {game.negotiation.secondOfferIds !== null && (
+                    <div className="money-offer-display counter-offer-display">
+                      <small>{t.counter}</small>
+                      <div className="money-offer-fan">
+                        {game.negotiation.secondOfferValues.map(
+                          (value, index) => (
+                            <span
+                              className="money-offer-card"
+                              key={`${value}-${index}`}
+                            >
+                              {value}
+                            </span>
+                          ),
+                        )}
+                      </div>
+                      <strong>{game.negotiation.secondOfferTotal}</strong>
+                    </div>
+                  )}
+                </div>
                 {game.negotiation.targetId === self ? (
-                  <div className="button-row">
-                    <span>
-                      {t.amount}: {filteredOfferValue}
-                    </span>
+                  <div className="decision-card-row">
                     <button
-                      className="primary"
+                      className="play-action-card decision-playing-card accept-offer-card"
+                      disabled={busy}
                       onClick={() =>
                         void action({
                           type: "respondTrade",
@@ -2031,10 +2151,11 @@ export default function HomePage() {
                         })
                       }
                     >
+                      <span aria-hidden="true">✓</span>
                       {t.accept}
                     </button>
                     <button
-                      className="secondary"
+                      className="play-action-card decision-playing-card counter-offer-card"
                       disabled={busy}
                       onClick={() =>
                         void action({
@@ -2044,11 +2165,15 @@ export default function HomePage() {
                         })
                       }
                     >
+                      <span aria-hidden="true">↪</span>
                       {t.counter}
                     </button>
                   </div>
                 ) : (
-                  <p>{t.waiting}</p>
+                  <div className="waiting-card">
+                    <span aria-hidden="true">⌛</span>
+                    <strong>{t.waiting}</strong>
+                  </div>
                 )}
               </div>
             )}
@@ -2083,13 +2208,15 @@ export default function HomePage() {
                 <div className="button-row result-actions">
                   <button
                     className="secondary"
-                    onClick={() =>
-                      document
-                        .getElementById("public-game-log")
-                        ?.scrollIntoView({
-                          behavior: reduceMotion ? "instant" : "smooth",
-                        })
-                    }
+                    onClick={() => {
+                      const gameLog =
+                        document.getElementById("public-game-log");
+                      if (gameLog instanceof HTMLDetailsElement)
+                        gameLog.open = true;
+                      gameLog?.scrollIntoView({
+                        behavior: reduceMotion ? "instant" : "smooth",
+                      });
+                    }}
                   >
                     {t.viewLog}
                   </button>
@@ -2168,108 +2295,115 @@ export default function HomePage() {
                 )}
               </div>
             )}
-            <div className="collection-heading">
-              <div>
-                <span className="eyebrow">{t.game}</span>
-                <h2>{t.animalsOwned}</h2>
-              </div>
-              <span className="status-pill">
-                {game.animals.filter((card) => card.ownerId === self).length}{" "}
-                {t.animalCards}
-              </span>
-            </div>
-            {game.players.map((player) => (
-              <section className="player-collection" key={player.id}>
-                <h3>
-                  {player.nickname}
-                  {player.id === self && (
-                    <span className="you-tag">
-                      {lang === "ar" ? "أنت" : "You"}
-                    </span>
-                  )}
-                </h3>
-                <div className="collection">
-                  {animals.map((animal) => {
-                    const cards = game.animals.filter(
-                      (card) =>
-                        card.ownerId === player.id && card.type === animal,
-                    );
-                    return (
-                      <details
-                        key={`${player.id}-${animal}`}
-                        className={`animal-card-group ${cards.length === 4 ? "quartet" : cards.length ? "has-animals" : "empty-animal"} ${cards.some((card) => card.id === recentTransferCardId) ? "transfer-arrival" : ""}`}
-                      >
-                        <summary>
-                          <span className="animal-card-art" aria-hidden="true">
-                            {animalIcon(animal)}
-                          </span>
-                          <span className="animal-card-info">
-                            <strong>{avatarName(animal, lang)}</strong>
-                            <small>
-                              {values[animal]}{" "}
-                              {lang === "ar"
-                                ? "قيمة الرباعية"
-                                : "quartet value"}
-                            </small>
-                          </span>
-                          <span className="animal-count">{cards.length}/4</span>
-                        </summary>
-                        <div className="animal-card-details">
-                          {cards.length ? (
-                            <div
-                              className="mini-card-row"
-                              aria-label={`${cards.length} ${avatarName(animal, lang)} cards`}
-                            >
-                              {cards.map((card) => (
-                                <span
-                                  className="mini-animal-card"
-                                  key={card.id}
-                                  aria-hidden="true"
-                                >
-                                  {animalIcon(animal)}
-                                </span>
-                              ))}
-                            </div>
-                          ) : (
-                            <small className="muted">{t.emptySet}</small>
-                          )}
-                          {cards.map((card) => (
-                            <small className="animal-card-id" key={card.id}>
-                              {card.acquisitionSource && (
-                                <span>
-                                  {" · "}
-                                  {card.acquisitionSource === "AUCTION"
-                                    ? t.auctionSource
-                                    : t.tradeSource}
-                                </span>
-                              )}
-                              {card.acquiredAt && (
-                                <span>
-                                  {" · "}
-                                  {t.acquired}:{" "}
-                                  {new Date(card.acquiredAt).toLocaleString(
-                                    lang,
-                                  )}
-                                </span>
-                              )}
-                              {card.previousOwnerId && (
-                                <span>
-                                  {" · "}
-                                  {t.previousOwner}:{" "}
-                                  {game.players.find(
-                                    (p) => p.id === card.previousOwnerId,
-                                  )?.nickname ?? "—"}
-                                </span>
-                              )}
-                            </small>
-                          ))}
-                        </div>
-                      </details>
-                    );
-                  })}
+            <details className="collection-details">
+              <summary className="collection-details-summary">
+                <div>
+                  <span className="eyebrow">{t.game}</span>
+                  <h2>{t.animalsOwned}</h2>
                 </div>
-              </section>
-            ))}
+                <span className="status-pill">
+                  {game.animals.filter((card) => card.ownerId === self).length}{" "}
+                  {t.animalCards}
+                </span>
+              </summary>
+              {game.players.map((player) => (
+                <section className="player-collection" key={player.id}>
+                  <h3>
+                    {player.nickname}
+                    {player.id === self && (
+                      <span className="you-tag">
+                        {lang === "ar" ? "أنت" : "You"}
+                      </span>
+                    )}
+                  </h3>
+                  <div className="collection">
+                    {animals.map((animal) => {
+                      const cards = game.animals.filter(
+                        (card) =>
+                          card.ownerId === player.id && card.type === animal,
+                      );
+                      return (
+                        <details
+                          key={`${player.id}-${animal}`}
+                          className={`animal-card-group ${cards.length === 4 ? "quartet" : cards.length ? "has-animals" : "empty-animal"} ${cards.some((card) => card.id === recentTransferCardId) ? "transfer-arrival" : ""}`}
+                        >
+                          <summary>
+                            <span
+                              className="animal-card-art"
+                              aria-hidden="true"
+                            >
+                              {animalIcon(animal)}
+                            </span>
+                            <span className="animal-card-info">
+                              <strong>{avatarName(animal, lang)}</strong>
+                              <small>
+                                {values[animal]}{" "}
+                                {lang === "ar"
+                                  ? "قيمة الرباعية"
+                                  : "quartet value"}
+                              </small>
+                            </span>
+                            <span className="animal-count">
+                              {cards.length}/4
+                            </span>
+                          </summary>
+                          <div className="animal-card-details">
+                            {cards.length ? (
+                              <div
+                                className="mini-card-row"
+                                aria-label={`${cards.length} ${avatarName(animal, lang)} cards`}
+                              >
+                                {cards.map((card) => (
+                                  <span
+                                    className="mini-animal-card"
+                                    key={card.id}
+                                    aria-hidden="true"
+                                  >
+                                    {animalIcon(animal)}
+                                  </span>
+                                ))}
+                              </div>
+                            ) : (
+                              <small className="muted">{t.emptySet}</small>
+                            )}
+                            {cards.map((card) => (
+                              <small className="animal-card-id" key={card.id}>
+                                {card.acquisitionSource && (
+                                  <span>
+                                    {" · "}
+                                    {card.acquisitionSource === "AUCTION"
+                                      ? t.auctionSource
+                                      : t.tradeSource}
+                                  </span>
+                                )}
+                                {card.acquiredAt && (
+                                  <span>
+                                    {" · "}
+                                    {t.acquired}:{" "}
+                                    {new Date(card.acquiredAt).toLocaleString(
+                                      lang,
+                                    )}
+                                  </span>
+                                )}
+                                {card.previousOwnerId && (
+                                  <span>
+                                    {" · "}
+                                    {t.previousOwner}:{" "}
+                                    {game.players.find(
+                                      (p) => p.id === card.previousOwnerId,
+                                    )?.nickname ?? "—"}
+                                  </span>
+                                )}
+                              </small>
+                            ))}
+                          </div>
+                        </details>
+                      );
+                    })}
+                  </div>
+                </section>
+              ))}
+            </details>
           </div>
           <aside className="panel hand-panel">
             <div className="hand-heading">
@@ -2321,48 +2455,53 @@ export default function HomePage() {
                 </button>
               ))}
             </div>
-            <h2 id="public-game-log">{t.log}</h2>
-            <div className="log-filters">
-              <select
-                value={filterActor}
-                onChange={(e) => setFilterActor(e.target.value)}
-              >
-                <option value="">{t.players}</option>
-                {game.players.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.nickname}
-                  </option>
+            <details className="public-log-panel" id="public-game-log">
+              <summary className="public-log-summary">
+                <span>{t.log}</span>
+                <small>{log.length}</small>
+              </summary>
+              <div className="log-filters">
+                <select
+                  value={filterActor}
+                  onChange={(e) => setFilterActor(e.target.value)}
+                >
+                  <option value="">{t.players}</option>
+                  {game.players.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.nickname}
+                    </option>
+                  ))}
+                </select>
+                <select
+                  value={filterEvent}
+                  onChange={(e) => setFilterEvent(e.target.value)}
+                >
+                  <option value="">All events</option>
+                  {[...new Set(log.map((e) => e.eventType))].map((event) => (
+                    <option key={event}>{event}</option>
+                  ))}
+                </select>
+              </div>
+              <ol className="event-log">
+                {filteredLog.map((e) => (
+                  <li key={e.sequence}>
+                    <small>
+                      {new Date(e.occurredAt).toLocaleTimeString(
+                        lang === "ar" ? "ar" : "en",
+                      )}
+                    </small>
+                    <span>
+                      {e.eventType.replaceAll("_", " ")} {e.animalType ?? ""}{" "}
+                      {e.amount ?? e.submittedMoneyValue ?? ""}{" "}
+                      {e.submittedMoneyDenominations.length
+                        ? `[${e.submittedMoneyDenominations.join(", ")}]`
+                        : ""}
+                    </span>
+                  </li>
                 ))}
-              </select>
-              <select
-                value={filterEvent}
-                onChange={(e) => setFilterEvent(e.target.value)}
-              >
-                <option value="">All events</option>
-                {[...new Set(log.map((e) => e.eventType))].map((event) => (
-                  <option key={event}>{event}</option>
-                ))}
-              </select>
-            </div>
-            <ol className="event-log">
-              {filteredLog.map((e) => (
-                <li key={e.sequence}>
-                  <small>
-                    {new Date(e.occurredAt).toLocaleTimeString(
-                      lang === "ar" ? "ar" : "en",
-                    )}
-                  </small>
-                  <span>
-                    {e.eventType.replaceAll("_", " ")} {e.animalType ?? ""}{" "}
-                    {e.amount ?? e.submittedMoneyValue ?? ""}{" "}
-                    {e.submittedMoneyDenominations.length
-                      ? `[${e.submittedMoneyDenominations.join(", ")}]`
-                      : ""}
-                  </span>
-                </li>
-              ))}
-              {!filteredLog.length && <li>{t.noLog}</li>}
-            </ol>
+                {!filteredLog.length && <li>{t.noLog}</li>}
+              </ol>
+            </details>
           </aside>
         </section>
       )}

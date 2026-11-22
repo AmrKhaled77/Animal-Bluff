@@ -1796,8 +1796,16 @@ select:focus-visible {
   position: relative;
   width: 148px;
   height: 210px;
-  transform-style: preserve-3d;
+}
+.auction-card-flip.is-revealing {
   animation: reveal-card 850ms cubic-bezier(0.18, 0.78, 0.25, 1) both;
+}
+.auction-card-flip.is-revealing .auction-card-back {
+  transform-origin: left center;
+  animation: reveal-card-back 850ms cubic-bezier(0.18, 0.78, 0.25, 1) both;
+}
+.auction-card-flip.card-already-revealed .auction-card-back {
+  display: none;
 }
 .auction-card-back,
 .auction-card-face {
@@ -1814,6 +1822,7 @@ select:focus-visible {
   box-shadow: 0 13px 26px #26362d38;
 }
 .auction-card-back {
+  z-index: 1;
   gap: 12px;
   outline: 1px solid #d9cba9;
   outline-offset: -10px;
@@ -1836,8 +1845,8 @@ select:focus-visible {
   color: #e4c777;
 }
 .auction-card-face {
+  z-index: 0;
   gap: 6px;
-  transform: rotateY(180deg);
   background:
     radial-gradient(ellipse at 50% 38%, #ffffff 0 30%, transparent 31%),
     linear-gradient(150deg, #fff9e9, #f3e4c5);
@@ -1855,6 +1864,12 @@ select:focus-visible {
 }
 .auction-card-face strong {
   font-size: 1.05rem;
+}
+.card-face-value-label {
+  margin-bottom: -6px;
+  color: #7e7156;
+  font-size: 0.62rem;
+  font-weight: 700;
 }
 .auction-card-face small {
   display: grid;
@@ -1900,14 +1915,29 @@ select:focus-visible {
 @keyframes reveal-card {
   0% {
     opacity: 0;
-    transform: translateY(-24px) rotateY(0) scale(0.88);
+    transform: translateY(-24px) scale(0.88);
   }
   14% {
     opacity: 1;
   }
   100% {
     opacity: 1;
-    transform: translateY(0) rotateY(180deg) scale(1);
+    transform: translateY(0) scale(1);
+  }
+}
+@keyframes reveal-card-back {
+  0% {
+    opacity: 1;
+    transform: perspective(800px) rotateY(0deg);
+  }
+  46% {
+    opacity: 1;
+    transform: perspective(800px) rotateY(-82deg);
+  }
+  62%,
+  100% {
+    opacity: 0;
+    transform: perspective(800px) rotateY(-105deg);
   }
 }
 @keyframes hand-deal {

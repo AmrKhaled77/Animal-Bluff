@@ -471,6 +471,43 @@ function animalIcon(animal: string) {
   };
   return icons[animal] ?? "🐾";
 }
+function AuctionAnimalCard({ game, lang }: { game: Game; lang: Language }) {
+  if (!game.auction) return null;
+  const animal =
+    game.animals.find((card) => card.id === game.auction!.animalCardId)?.type ??
+    "";
+  const value = values[animal] ?? 0;
+  const formattedValue = value.toLocaleString(
+    lang === "ar" ? "ar-EG" : "en-US",
+  );
+  const valueLabel = lang === "ar" ? "قيمة الرباعية" : "Quartet value";
+
+  return (
+    <div
+      className="auction-card-scene"
+      role="img"
+      aria-label={`${avatarName(animal, lang)} · ${valueLabel} ${formattedValue}`}
+    >
+      <div
+        className={`auction-card-flip ${game.phase === "AUCTION" ? "is-revealing" : "card-already-revealed"}`}
+        key={game.auction.animalCardId}
+      >
+        <div className="auction-card-face">
+          <span className="card-face-corner">{animalIcon(animal)}</span>
+          <span className="card-face-animal">{animalIcon(animal)}</span>
+          <strong>{avatarName(animal, lang)}</strong>
+          <span className="card-face-value-label">{valueLabel}</span>
+          <small>{formattedValue}</small>
+        </div>
+        <div className="auction-card-back">
+          <span className="card-back-mark">♞</span>
+          <strong>ANIMAL BLUFF</strong>
+          <small>✦ · ✦ · ✦</small>
+        </div>
+      </div>
+    </div>
+  );
+}
 function errorText(code: string, lang: Language) {
   const en: Record<string, string> = {
     INTERNAL_ERROR:
@@ -1821,40 +1858,7 @@ export default function HomePage() {
             )}
             {game.phase === "AUCTION" && game.auction && (
               <div className="action-panel">
-                {(() => {
-                  const animal =
-                    game.animals.find(
-                      (card) => card.id === game.auction!.animalCardId,
-                    )?.type ?? "";
-                  return (
-                    <div
-                      className="auction-card-scene"
-                      role="img"
-                      aria-label={`${avatarName(animal, lang)} · ${values[animal] ?? ""}`}
-                    >
-                      <div
-                        className="auction-card-flip"
-                        key={game.auction.animalCardId}
-                      >
-                        <div className="auction-card-back">
-                          <span className="card-back-mark">♞</span>
-                          <strong>ANIMAL BLUFF</strong>
-                          <small>✦ · ✦ · ✦</small>
-                        </div>
-                        <div className="auction-card-face">
-                          <span className="card-face-corner">
-                            {animalIcon(animal)}
-                          </span>
-                          <span className="card-face-animal">
-                            {animalIcon(animal)}
-                          </span>
-                          <strong>{avatarName(animal, lang)}</strong>
-                          <small>{values[animal] ?? ""}</small>
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })()}
+                <AuctionAnimalCard game={game} lang={lang} />
                 <div className="auction-status-cards">
                   <div className="auction-player-card">
                     <small>{t.auction}</small>
@@ -1967,6 +1971,7 @@ export default function HomePage() {
             )}
             {game.phase === "AUCTIONEER_CHOICE" && game.auction && (
               <div className="action-panel">
+                <AuctionAnimalCard game={game} lang={lang} />
                 <div className="auction-result-ticket">
                   <small>{t.highBidder}</small>
                   <strong>
@@ -2009,6 +2014,7 @@ export default function HomePage() {
             )}
             {game.phase === "PAYMENT" && game.auction && (
               <div className="action-panel">
+                <AuctionAnimalCard game={game} lang={lang} />
                 <div className="payment-ticket">
                   <span className="eyebrow">{t.pay}</span>
                   <div className="payment-route-cards">

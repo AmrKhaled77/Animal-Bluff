@@ -620,6 +620,9 @@ export default function HomePage() {
   const [lobby, setLobby] = useState<Lobby | null>(null);
   const [game, setGame] = useState<Game | null>(null);
   const [log, setLog] = useState<LogEntry[]>([]);
+  const [recentTransferCardId, setRecentTransferCardId] = useState<
+    string | null
+  >(null);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [bid, setBid] = useState(10);
@@ -638,6 +641,7 @@ export default function HomePage() {
   const [settingsLoaded, setSettingsLoaded] = useState(false);
   const lastLogSequence = useRef(0);
   const lastAuctionAlert = useRef(0);
+  const transferPulseTimer = useRef<number | null>(null);
   const musicController = useRef<ReturnType<typeof createAmbientMusic>>(null);
   const realtimeRoom = useRef<ColyseusRoom | null>(null);
   const [clockNow, setClockNow] = useState(Date.now());
@@ -897,6 +901,27 @@ export default function HomePage() {
       (event) => event.sequence > lastLogSequence.current,
     );
     lastLogSequence.current = newest;
+    const transfer = fresh
+      .filter((event) => event.eventType === "ANIMAL_TRANSFERRED")
+      .at(-1);
+    if (transfer?.targetPlayerId && game) {
+      const receivedCard = game.animals
+        .filter(
+          (card) =>
+            card.ownerId === transfer.targetPlayerId &&
+            (!transfer.animalType || card.type === transfer.animalType),
+        )
+        .sort((a, b) => (b.acquiredAt ?? 0) - (a.acquiredAt ?? 0))[0];
+      if (receivedCard) {
+        setRecentTransferCardId(receivedCard.id);
+        if (transferPulseTimer.current !== null)
+          window.clearTimeout(transferPulseTimer.current);
+        transferPulseTimer.current = window.setTimeout(() => {
+          setRecentTransferCardId(null);
+          transferPulseTimer.current = null;
+        }, 1_150);
+      }
+    }
     const celebration = fresh.some((event) =>
       ["QUARTET_COMPLETED", "MATCH_ENDED"].includes(event.eventType),
     );
@@ -910,7 +935,15 @@ export default function HomePage() {
     );
     if (celebration && soundEffects) playTone(volume / 100);
     if (notification && notificationSound) playTone(volume / 100);
-  }, [log, notificationSound, soundEffects, volume]);
+  }, [game, log, notificationSound, soundEffects, volume]);
+
+  useEffect(
+    () => () => {
+      if (transferPulseTimer.current !== null)
+        window.clearTimeout(transferPulseTimer.current);
+    },
+    [],
+  );
 
   useEffect(() => {
     const deadline =
@@ -1248,7 +1281,7 @@ export default function HomePage() {
       setServerClockOffsetMs(result.serverNow - Date.now());
       setGame(result.state);
       setView("starting");
-      window.setTimeout(() => setView("game"), 1_400);
+      window.setTimeout(() => setView("game"), 1_500);
     } catch (e) {
       setError(errorText(e instanceof Error ? e.message : "", lang));
     } finally {
@@ -1561,6 +1594,16 @@ export default function HomePage() {
           aria-live="polite"
         >
           <span className="eyebrow">{t.game}</span>
+          <div className="deal-animation" aria-hidden="true">
+            <div className="deal-deck">
+              {[0, 1, 2, 3, 4, 5, 6].map((card) => (
+                <span className={`dealing-card deal-card-${card}`} key={card}>
+                  ♞
+                </span>
+              ))}
+            </div>
+            <div className="deal-sparkle">✦</div>
+          </div>
           <h1>{t.shuffling}</h1>
           <p>
             {t.firstPlayer}:{" "}
@@ -1717,6 +1760,40 @@ export default function HomePage() {
               )}
             {game.phase === "AUCTION" && game.auction && (
               <div className="action-panel">
+                {(() => {
+                  const animal =
+                    game.animals.find(
+                      (card) => card.id === game.auction!.animalCardId,
+                    )?.type ?? "";
+                  return (
+                    <div
+                      className="auction-card-scene"
+                      role="img"
+                      aria-label={`${avatarName(animal, lang)} · ${values[animal] ?? ""}`}
+                    >
+                      <div
+                        className="auction-card-flip"
+                        key={game.auction.animalCardId}
+                      >
+                        <div className="auction-card-back">
+                          <span className="card-back-mark">♞</span>
+                          <strong>ANIMAL BLUFF</strong>
+                          <small>✦ · ✦ · ✦</small>
+                        </div>
+                        <div className="auction-card-face">
+                          <span className="card-face-corner">
+                            {animalIcon(animal)}
+                          </span>
+                          <span className="card-face-animal">
+                            {animalIcon(animal)}
+                          </span>
+                          <strong>{avatarName(animal, lang)}</strong>
+                          <small>{values[animal] ?? ""}</small>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })()}
                 <h2>
                   {animalIcon(
                     game.animals.find(
@@ -2120,7 +2197,7 @@ export default function HomePage() {
                     return (
                       <details
                         key={`${player.id}-${animal}`}
-                        className={`animal-card-group ${cards.length === 4 ? "quartet" : cards.length ? "has-animals" : "empty-animal"}`}
+                        className={`animal-card-group ${cards.length === 4 ? "quartet" : cards.length ? "has-animals" : "empty-animal"} ${cards.some((card) => card.id === recentTransferCardId) ? "transfer-arrival" : ""}`}
                       >
                         <summary>
                           <span className="animal-card-art" aria-hidden="true">

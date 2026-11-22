@@ -545,6 +545,9 @@ select:focus-visible {
 .animal-card-group[open] {
   border-color: #9daf91;
 }
+.transfer-arrival .animal-card-art {
+  animation: transfer-in 760ms cubic-bezier(0.18, 0.8, 0.25, 1) both;
+}
 .animal-card-group summary {
   display: flex;
   align-items: center;
@@ -707,6 +710,25 @@ select:focus-visible {
     transform 160ms ease,
     box-shadow 160ms ease,
     border-color 160ms ease;
+  animation: hand-deal 480ms cubic-bezier(0.2, 0.75, 0.25, 1) backwards;
+}
+.money-card:nth-child(2) {
+  animation-delay: 45ms;
+}
+.money-card:nth-child(3) {
+  animation-delay: 90ms;
+}
+.money-card:nth-child(4) {
+  animation-delay: 135ms;
+}
+.money-card:nth-child(5) {
+  animation-delay: 180ms;
+}
+.money-card:nth-child(6) {
+  animation-delay: 225ms;
+}
+.money-card:nth-child(7) {
+  animation-delay: 270ms;
 }
 .money-card:hover:not(:disabled) {
   transform: translateY(-3px) rotate(-1deg);
@@ -910,6 +932,159 @@ select:focus-visible {
 .game-starting {
   text-align: center;
 }
+.deal-animation {
+  position: relative;
+  display: grid;
+  place-items: center;
+  height: 150px;
+  margin: 12px 0 4px;
+  perspective: 800px;
+}
+.deal-deck {
+  position: relative;
+  width: 78px;
+  height: 108px;
+}
+.dealing-card {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  border: 2px solid #fff8e8;
+  border-radius: 12px;
+  background:
+    radial-gradient(circle at center, #ffffff24 1px, transparent 2px) 0 0 / 12px
+      12px,
+    linear-gradient(145deg, #426f50, #234b38);
+  box-shadow: 0 5px 12px #233d2b35;
+  color: #fff3d4;
+  font-size: 2rem;
+  animation: deal-flight 1.18s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+.deal-card-1 {
+  --deal-x: -110px;
+  --deal-y: -38px;
+  --deal-r: -22deg;
+  animation-delay: 45ms;
+}
+.deal-card-2 {
+  --deal-x: 106px;
+  --deal-y: -35px;
+  --deal-r: 20deg;
+  animation-delay: 90ms;
+}
+.deal-card-3 {
+  --deal-x: -126px;
+  --deal-y: 25px;
+  --deal-r: -16deg;
+  animation-delay: 135ms;
+}
+.deal-card-4 {
+  --deal-x: 124px;
+  --deal-y: 26px;
+  --deal-r: 18deg;
+  animation-delay: 180ms;
+}
+.deal-card-5 {
+  --deal-x: -52px;
+  --deal-y: 50px;
+  --deal-r: -9deg;
+  animation-delay: 225ms;
+}
+.deal-card-6 {
+  --deal-x: 56px;
+  --deal-y: 48px;
+  --deal-r: 10deg;
+  animation-delay: 270ms;
+}
+.deal-sparkle {
+  position: absolute;
+  color: #d8a742;
+  font-size: 1.35rem;
+  animation: sparkle-pulse 700ms ease-in-out infinite alternate;
+}
+.auction-card-scene {
+  display: grid;
+  place-items: center;
+  min-height: 232px;
+  margin: 4px auto 20px;
+  perspective: 1000px;
+}
+.auction-card-flip {
+  position: relative;
+  width: 148px;
+  height: 210px;
+  transform-style: preserve-3d;
+  animation: reveal-card 850ms cubic-bezier(0.18, 0.78, 0.25, 1) both;
+}
+.auction-card-back,
+.auction-card-face {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  border: 5px solid #fffdf7;
+  border-radius: 17px;
+  backface-visibility: hidden;
+  box-shadow: 0 13px 26px #26362d38;
+}
+.auction-card-back {
+  gap: 12px;
+  outline: 1px solid #d9cba9;
+  outline-offset: -10px;
+  background:
+    radial-gradient(circle, #ffffff1c 1.4px, transparent 2px) 0 0 / 13px 13px,
+    linear-gradient(145deg, #47775a, #234b38);
+  color: #fff3d4;
+  letter-spacing: 0.12em;
+}
+.card-back-mark {
+  display: grid;
+  place-items: center;
+  width: 60px;
+  height: 60px;
+  border: 1px solid #f4e5be88;
+  border-radius: 50%;
+  font-size: 2rem;
+}
+.auction-card-back small {
+  color: #e4c777;
+}
+.auction-card-face {
+  gap: 6px;
+  transform: rotateY(180deg);
+  background:
+    radial-gradient(ellipse at 50% 38%, #ffffff 0 30%, transparent 31%),
+    linear-gradient(150deg, #fff9e9, #f3e4c5);
+  color: var(--green);
+}
+.card-face-corner {
+  align-self: flex-start;
+  margin: 5px 8px;
+  font-size: 1.2rem;
+}
+.card-face-animal {
+  margin-top: -10px;
+  font-size: 3.5rem;
+  filter: drop-shadow(0 4px 2px #463b2525);
+}
+.auction-card-face strong {
+  font-size: 1.05rem;
+}
+.auction-card-face small {
+  display: grid;
+  place-items: center;
+  min-width: 42px;
+  padding: 4px 8px;
+  border: 1px solid #d7c596;
+  border-radius: 20px;
+  background: #fffdf7;
+  color: #846623;
+  font-weight: 700;
+}
 .starting-order {
   display: inline-grid;
   gap: 0.5rem;
@@ -921,6 +1096,71 @@ select:focus-visible {
   padding: 0.5rem 0.8rem;
   border-radius: 10px;
   background: #f0f3e9;
+}
+@keyframes deal-flight {
+  0% {
+    opacity: 0;
+    transform: translateY(-18px) rotateY(25deg) scale(0.82);
+  }
+  16% {
+    opacity: 1;
+    transform: translateY(0) rotateY(0) scale(1);
+  }
+  35% {
+    transform: translate(-5px, -5px) rotate(-5deg) scale(1.02);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(var(--deal-x, 0), var(--deal-y, -30px))
+      rotate(var(--deal-r, 8deg)) scale(0.72);
+  }
+}
+@keyframes reveal-card {
+  0% {
+    opacity: 0;
+    transform: translateY(-24px) rotateY(0) scale(0.88);
+  }
+  14% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) rotateY(180deg) scale(1);
+  }
+}
+@keyframes hand-deal {
+  from {
+    opacity: 0;
+    transform: translateY(-22px) rotate(6deg) scale(0.92);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) rotate(0) scale(1);
+  }
+}
+@keyframes sparkle-pulse {
+  from {
+    opacity: 0.45;
+    transform: scale(0.8) rotate(0);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1.2) rotate(35deg);
+  }
+}
+@keyframes transfer-in {
+  0% {
+    opacity: 0.35;
+    transform: perspective(240px) translateY(-15px) rotateY(88deg) scale(0.8);
+  }
+  68% {
+    opacity: 1;
+    transform: perspective(240px) translateY(2px) rotateY(-9deg) scale(1.08);
+  }
+  100% {
+    opacity: 1;
+    transform: perspective(240px) translateY(0) rotateY(0) scale(1);
+  }
 }
 .setting-row {
   flex-direction: row;
@@ -1045,6 +1285,10 @@ footer {
   }
   .collection-heading {
     align-items: flex-end;
+  }
+  .deal-animation {
+    transform: scale(0.84);
+    margin-block: -2px;
   }
   .collection-heading .status-pill {
     font-size: 0.68rem;

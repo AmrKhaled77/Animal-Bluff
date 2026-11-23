@@ -1,0 +1,34 @@
+services:
+  - type: web
+    name: animal-bluff-game-server
+    runtime: node
+    plan: free
+    region: frankfurt
+    buildCommand: >-
+      npm ci --include=dev &&
+      npm run build -w @animal-bluff/shared &&
+      npm run build -w @animal-bluff/server &&
+      npx prisma migrate deploy --schema apps/server/prisma/schema.prisma
+    startCommand: npm run start -w @animal-bluff/server
+    healthCheckPath: /health
+    envVars:
+      - key: SERVER_HOST
+        value: 0.0.0.0
+      - key: DATABASE_URL
+        sync: false
+      - key: WEB_ORIGIN
+        fromService:
+          type: web
+          name: animal-bluff-game-web
+          envVarKey: RENDER_EXTERNAL_URL
+  - type: web
+    name: animal-bluff-game-web
+    runtime: static
+    buildCommand: npm ci --include=dev && npm run build -w @animal-bluff/web
+    staticPublishPath: apps/web/out
+    envVars:
+      - key: NEXT_PUBLIC_SERVER_URL
+        fromService:
+          type: web
+          name: animal-bluff-game-server
+          envVarKey: RENDER_EXTERNAL_URL

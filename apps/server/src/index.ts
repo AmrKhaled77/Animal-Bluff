@@ -14,8 +14,10 @@ import {
   configureRealtimeRoom,
 } from "./realtime-room.js";
 
-const port = Number(process.env.SERVER_PORT ?? 2567);
-const host = process.env.SERVER_HOST ?? "127.0.0.1";
+const port = Number(process.env.PORT ?? process.env.SERVER_PORT ?? 2567);
+const host =
+  process.env.SERVER_HOST ??
+  (process.env.NODE_ENV === "production" ? "0.0.0.0" : "127.0.0.1");
 const webOrigin = process.env.WEB_ORIGIN ?? "http://localhost:3000";
 const prisma = new PrismaClient();
 const rooms = new RoomService(prisma);
